@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>粤拼填空测验</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    
+    <!-- 配置Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#10b981',
+                        danger: '#ef4444',
+                        neutral: '#1f2937',
+                        light: '#f3f4f6'
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .slide-in {
+                animation: slideIn 0.3s ease-out forwards;
+            }
+            .fade-in {
+                animation: fadeIn 0.5s ease-out forwards;
+            }
+            .shake {
+                animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes shake {
+            10%, 90% { transform: translateX(-1px); }
+            20%, 80% { transform: translateX(2px); }
+            30%, 50%, 70% { transform: translateX(-3px); }
+            40%, 60% { transform: translateX(3px); }
+        }
+
+        /* 烟花效果样式 */
+        .firework {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            animation: explode 1s ease-out forwards;
+        }
+        
+        @keyframes explode {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body class="bg-light min-h-screen font-sans text-neutral">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-pencil-square-o text-primary text-2xl"></i>
+                <h1 class="text-xl md:text-2xl font-bold">粤拼填空测验</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="hidden md:flex items-center">
+                    <span class="mr-2 text-gray-600">正确率:</span>
+                    <span id="accuracy" class="font-semibold">0%</span>
+                </div>
+                <button id="reset-btn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-colors flex items-center">
+                    <i class="fa fa-refresh mr-2"></i> 重置
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- 统计信息 -->
+        <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+            <div class="flex flex-wrap justify-between items-center gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold">学习进度</h2>
+                    <p class="text-gray-600 text-sm">错误率高的词汇会更频繁出现 | 提示：双击回车键可进入下一题</p>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full md:w-auto">
+                    <div class="bg-blue-50 p-3 rounded-lg">
+                        <div class="text-xs text-gray-500">总题数</div>
+                        <div id="total-questions" class="font-bold">0</div>
+                    </div>
+                    <div class="bg-green-50 p-3 rounded-lg">
+                        <div class="text-xs text-gray-500">正确</div>
+                        <div id="correct-answers" class="font-bold text-secondary">0</div>
+                    </div>
+                    <div class="bg-red-50 p-3 rounded-lg">
+                        <div class="text-xs text-gray-500">错误</div>
+                        <div id="wrong-answers" class="font-bold text-danger">0</div>
+                    </div>
+                    <div class="bg-purple-50 p-3 rounded-lg">
+                        <div class="text-xs text-gray-500">词汇掌握</div>
+                        <div id="mastered-words" class="font-bold">0%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 测验区域 -->
+        <section id="quiz-area" class="max-w-2xl mx-auto">
+            <div id="question-card" class="bg-white rounded-xl shadow-lg p-6 mb-6 slide-in">
+                <div class="flex items-center mb-4">
+                    <span id="question-number" class="bg-primary/10 text-primary px-3 py-1 rounded-full text-sm font-medium">问题 1</span>
+                    <span id="word-difficulty" class="ml-auto px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">中等难度</span>
+                </div>
+                <h3 class="text-xl font-bold mb-6">请填写「<span id="current-word" class="text-primary">爸爸</span>」的粤拼：</h3>
+                
+                <div class="mb-4">
+                    <input type="text" id="answer-input" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                           placeholder="输入粤拼..." autocomplete="off">
+                </div>
+                
+                <div class="flex space-x-3">
+                    <button id="submit-btn" class="flex-1 bg-primary hover:bg-primary/90 text-white px-4 py-3 rounded-lg transition-colors flex items-center justify-center">
+                        <i class="fa fa-check mr-2"></i> 提交答案
+                    </button>
+                    <button id="skip-btn" class="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                        <i class="fa fa-forward"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 答案反馈 -->
+            <div id="feedback-card" class="bg-white rounded-xl shadow-lg p-6 mb-6 hidden fade-in">
+                <div id="correct-feedback" class="hidden">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center text-secondary">
+                            <i class="fa fa-check text-xl"></i>
+                        </div>
+                        <h3 class="ml-3 text-lg font-bold text-secondary">正确！</h3>
+                    </div>
+                </div>
+                
+                <div id="wrong-feedback" class="hidden">
+                    <div class="flex items-center mb-4">
+                        <div class="w-10 h-10 rounded-full bg-danger/20 flex items-center justify-center text-danger">
+                            <i class="fa fa-times text-xl"></i>
+                        </div>
+                        <h3 class="ml-3 text-lg font-bold text-danger">不正确</h3>
+                    </div>
+                    <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                        <p class="text-sm text-gray-600">正确答案是：<span id="correct-answer" class="font-medium"></span></p>
+                    </div>
+                </div>
+                
+                <button id="next-btn" class="w-full bg-primary hover:bg-primary/90 text-white px-4 py-3 rounded-lg transition-colors mt-4">
+                    下一个问题
+                </button>
+            </div>
+
+            <!-- 完成练习提示 -->
+            <div id="completion-card" class="bg-white rounded-xl shadow-lg p-8 mb-6 hidden fade-in text-center">
+                <div class="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center text-secondary mx-auto mb-4">
+                    <i class="fa fa-trophy text-3xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-secondary mb-4">恭喜你！</h3>
+                <p class="text-gray-600 mb-6">所有词汇都已掌握，练习完成！</p>
+                <button id="restart-btn" class="bg-primary hover:bg-primary/90 text-white px-6 py-3 rounded-lg transition-colors">
+                    重新开始练习
+                </button>
+            </div>
+        </section>
+        
+        <!-- 词汇统计 -->
+        <section class="mt-12">
+            <h2 class="text-xl font-bold mb-4">词汇掌握情况</h2>
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">词汇</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">正确</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">错误</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">错误率</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vocab-stats" class="bg-white divide-y divide-gray-200">
+                            <!-- 词汇统计将通过JS动态生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-neutral text-white py-6 mt-12">
+        <div class="container mx-auto px-4 text-center">
+            <p>粤拼填空测验 &copy; 2023</p>
+            <p class="mt-2 text-sm text-gray-300">错误率高的词汇会更频繁出现，帮助你重点练习</p>
+        </div>
+    </footer>
+
+    <script>
+        // 处理后的粤拼数据（已去除音调）
+        const vocabulary = [
+            { chinese: "爸爸", cantonese: "baa baa" },
+            { chinese: "媽媽", cantonese: "maa maa" },
+            { chinese: "兄弟", cantonese: "hing dai" },
+            { chinese: "姊妹", cantonese: "zi mui" },
+            { chinese: "哥哥", cantonese: "go go" },
+            { chinese: "弟弟", cantonese: "dai dai" },
+            { chinese: "姊姊", cantonese: "zi zi" },
+            { chinese: "姐姐", cantonese: "ze ze" },
+            { chinese: "妹妹", cantonese: "mui mui" },
+            { chinese: "家人", cantonese: "gaa jan" },
+            { chinese: "兒女", cantonese: "ji neoi" },
+            { chinese: "子女", cantonese: "zi neoi" },
+            { chinese: "孩子", cantonese: "haai zi" },
+            { chinese: "兒子", cantonese: "ji zi" },
+            { chinese: "女兒", cantonese: "neoi ji" },
+            { chinese: "祖父", cantonese: "zou fu" },
+            { chinese: "祖母", cantonese: "zou mou" },
+            { chinese: "外公", cantonese: "ngoi gung" },
+            { chinese: "外婆", cantonese: "ngoi po" },
+            { chinese: "丈夫", cantonese: "zoeng fu" },
+            { chinese: "妻子", cantonese: "cai zi" },
+            { chinese: "夫婦", cantonese: "fu fu" },
+            { chinese: "家庭", cantonese: "gaa ting" },
+            { chinese: "屋企", cantonese: "uk kei" },
+            { chinese: "父母", cantonese: "fu mou" },
+            { chinese: "美滿", cantonese: "mei mun" },
+            { chinese: "幸福", cantonese: "hang fuk" },
+            { chinese: "家務", cantonese: "gaa mou" },
+            { chinese: "回家", cantonese: "wui gaa" },
+            { chinese: "辛苦", cantonese: "san fu" },
+            { chinese: "打掃", cantonese: "daa sou" },
+            { chinese: "打架", cantonese: "daa gaa" },
+            { chinese: "談天", cantonese: "taam tin" },
+            { chinese: "幫助", cantonese: "bong zo" },
+            { chinese: "父親", cantonese: "fu can" },
+            { chinese: "母親", cantonese: "mou can" },
+            { chinese: "姨媽", cantonese: "ji maa" },
+            { chinese: "姨丈", cantonese: "ji zoeng" },
+            { chinese: "姑媽", cantonese: "gu maa" },
+            { chinese: "姑丈", cantonese: "gu zoeng" },
+            { chinese: "表弟", cantonese: "biu dai" },
+            { chinese: "叔叔", cantonese: "suk suk" },
+            { chinese: "嬸嬸", cantonese: "sam sam" },
+            { chinese: "舅父", cantonese: "kau fu" },
+            { chinese: "舅母", cantonese: "kau mou" },
+            { chinese: "子孫", cantonese: "zi syun" },
+            { chinese: "親戚", cantonese: "can cik" },
+            { chinese: "長輩", cantonese: "zoeng bui" },
+            { chinese: "寵物", cantonese: "cung mat" },
+            { chinese: "融洽", cantonese: "jung hap" },
+            { chinese: "關心", cantonese: "gwaan sam" },
+            { chinese: "原諒", cantonese: "jyun loeng" },
+            { chinese: "探望", cantonese: "taam mong" },
+            { chinese: "結婚", cantonese: "git fan" },
+            { chinese: "照料", cantonese: "ziu liu" },
+            { chinese: "起居", cantonese: "hei geoi" },
+            { chinese: "親情", cantonese: "can cing" },
+            { chinese: "養育", cantonese: "joeng juk" },
+            { chinese: "疼愛", cantonese: "tang oi" },
+            { chinese: "慈祥", cantonese: "ci coeng" },
+            { chinese: "服從", cantonese: "fuk cung" },
+            { chinese: "戀愛", cantonese: "lyun oi" },
+            { chinese: "婚姻", cantonese: "fan jan" },
+            { chinese: "爭吵", cantonese: "zang caau" },
+            { chinese: "主婦", cantonese: "zyu fu" },
+            { chinese: "尊敬", cantonese: "zyun ging" },
+            { chinese: "孝順", cantonese: "haau seon" }
+        ];
+
+        // 全局变量
+        let vocabStats; // 存储每个词汇的统计信息
+        let currentQuestionIndex = 0;
+        let currentWord = null;
+        let totalQuestions = 0;
+        let correctAnswers = 0;
+        let wrongAnswers = 0;
+        let enterKeyPressCount = 0; // 跟踪回车键按下次数
+        let enterKeyTimeout = null; // 用于检测双击的计时器
+
+        // DOM 元素
+        const questionNumberEl = document.getElementById('question-number');
+        const currentWordEl = document.getElementById('current-word');
+        const answerInputEl = document.getElementById('answer-input');
+        const submitBtnEl = document.getElementById('submit-btn');
+        const skipBtnEl = document.getElementById('skip-btn');
+        const nextBtnEl = document.getElementById('next-btn');
+        const questionCardEl = document.getElementById('question-card');
+        const feedbackCardEl = document.getElementById('feedback-card');
+        const correctFeedbackEl = document.getElementById('correct-feedback');
+        const wrongFeedbackEl = document.getElementById('wrong-feedback');
+        const correctAnswerEl = document.getElementById('correct-answer');
+        const resetBtnEl = document.getElementById('reset-btn');
+        const restartBtnEl = document.getElementById('restart-btn');
+        const totalQuestionsEl = document.getElementById('total-questions');
+        const correctAnswersEl = document.getElementById('correct-answers');
+        const wrongAnswersEl = document.getElementById('wrong-answers');
+        const masteredWordsEl = document.getElementById('mastered-words');
+        const accuracyEl = document.getElementById('accuracy');
+        const wordDifficultyEl = document.getElementById('word-difficulty');
+        const vocabStatsEl = document.getElementById('vocab-stats');
+        const completionCardEl = document.getElementById('completion-card');
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initVocabStats();
+            generateNewQuestion();
+            initEventListeners();
+            updateVocabStatsTable();
+        });
+
+        // 初始化词汇统计数据
+        function initVocabStats() {
+            vocabStats = vocabulary.map(word => ({
+                ...word,
+                correct: 0,
+                wrong: 0,
+                attempts: 0,
+                errorRate: 0, // 错误率 = 错误次数 / 总尝试次数
+                consecutiveCorrect: 0, // 连续正确次数
+                mastered: false // 是否已掌握（连续两次正确）
+            }));
+        }
+
+        // 根据错误率加权随机选择下一个词汇（只选择未掌握的）
+        function selectNextWord() {
+            // 筛选出未掌握的词汇
+            const unmasteredWords = vocabStats.filter(word => !word.mastered);
+            
+            // 检查是否所有词汇都已掌握
+            if (unmasteredWords.length === 0) {
+                return null;
+            }
+            
+            // 计算总权重（错误率越高，权重越大）
+            const totalWeight = unmasteredWords.reduce((sum, word) => {
+                // 从未被测试过的词汇给予基础权重 0.5
+                const weight = word.attempts > 0 ? (1 - word.errorRate) * 0.5 + 0.5 : 0.5;
+                return sum + (1 - weight); // 反转权重，错误率高的词汇权重更高
+            }, 0);
+            
+            // 随机选择一个词汇，基于权重
+            let random = Math.random() * totalWeight;
+            let selectedWord = null;
+            
+            for (const word of unmasteredWords) {
+                const weight = word.attempts > 0 ? (1 - word.errorRate) * 0.5 + 0.5 : 0.5;
+                const selectionWeight = 1 - weight;
+                
+                if (random < selectionWeight) {
+                    selectedWord = word;
+                    break;
+                }
+                
+                random -= selectionWeight;
+            }
+            
+            // 如果没有选中（理论上不会发生），随机选择一个
+            if (!selectedWord) {
+                selectedWord = unmasteredWords[Math.floor(Math.random() * unmasteredWords.length)];
+            }
+            
+            return selectedWord;
+        }
+
+        // 生成新问题
+        function generateNewQuestion() {
+            currentWord = selectNextWord();
+            
+            // 检查是否所有词汇都已掌握
+            if (!currentWord) {
+                showCompletionMessage();
+                return;
+            }
+            
+            currentQuestionIndex++;
+            
+            // 更新UI
+            questionNumberEl.textContent = `问题 ${currentQuestionIndex}`;
+            currentWordEl.textContent = currentWord.chinese;
+            answerInputEl.value = '';
+            answerInputEl.focus();
+            
+            // 隐藏反馈，显示问题
+            feedbackCardEl.classList.add('hidden');
+            questionCardEl.classList.remove('hidden');
+            completionCardEl.classList.add('hidden');
+            
+            // 更新难度指示器
+            updateDifficultyIndicator();
+        }
+
+        // 更新难度指示器
+        function updateDifficultyIndicator() {
+            if (currentWord.attempts === 0) {
+                wordDifficultyEl.textContent = '未测试';
+                wordDifficultyEl.className = 'ml-auto px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800';
+                return;
+            }
+            
+            if (currentWord.errorRate < 0.3) {
+                wordDifficultyEl.textContent = '简单';
+                wordDifficultyEl.className = 'ml-auto px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800';
+            } else if (currentWord.errorRate < 0.7) {
+                wordDifficultyEl.textContent = '中等难度';
+                wordDifficultyEl.className = 'ml-auto px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800';
+            } else {
+                wordDifficultyEl.textContent = '困难';
+                wordDifficultyEl.className = 'ml-auto px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800';
+            }
+        }
+
+        // 检查答案
+        function checkAnswer() {
+            const userAnswer = answerInputEl.value.trim().toLowerCase();
+            const correctAnswer = currentWord.cantonese.toLowerCase();
+            const isCorrect = userAnswer === correctAnswer;
+            
+            // 更新统计数据
+            currentWord.attempts++;
+            totalQuestions++;
+            
+            if (isCorrect) {
+                currentWord.correct++;
+                correctAnswers++;
+                // 连续正确计数+1，错误则重置为0
+                currentWord.consecutiveCorrect++;
+                
+                // 如果连续两次正确，则标记为已掌握
+                if (currentWord.consecutiveCorrect >= 2) {
+                    currentWord.mastered = true;
+                }
+                
+                showCorrectFeedback();
+            } else {
+                currentWord.wrong++;
+                wrongAnswers++;
+                // 错误则重置连续正确计数
+                currentWord.consecutiveCorrect = 0;
+                showWrongFeedback(correctAnswer);
+            }
+            
+            // 更新错误率
+            currentWord.errorRate = currentWord.wrong / currentWord.attempts;
+            
+            // 更新UI统计
+            updateStats();
+            updateVocabStatsTable();
+            
+            // 显示反馈，隐藏问题
+            questionCardEl.classList.add('hidden');
+            feedbackCardEl.classList.remove('hidden');
+        }
+
+        // 显示正确反馈
+        function showCorrectFeedback() {
+            correctFeedbackEl.classList.remove('hidden');
+            wrongFeedbackEl.classList.add('hidden');
+        }
+
+        // 显示错误反馈
+        function showWrongFeedback(correctAnswer) {
+            correctFeedbackEl.classList.add('hidden');
+            wrongFeedbackEl.classList.remove('hidden');
+            correctAnswerEl.textContent = correctAnswer;
+            
+            // 添加抖动动画
+            answerInputEl.classList.add('shake', 'border-danger');
+            setTimeout(() => {
+                answerInputEl.classList.remove('shake', 'border-danger');
+            }, 500);
+        }
+
+        // 显示完成练习消息
+        function showCompletionMessage() {
+            questionCardEl.classList.add('hidden');
+            feedbackCardEl.classList.add('hidden');
+            completionCardEl.classList.remove('hidden');
+            
+            // 播放烟花效果
+            createFireworks();
+        }
+
+        // 创建烟花效果
+        function createFireworks() {
+            const fireworksCount = 30;
+            const container = document.body;
+            
+            for (let i = 0; i < fireworksCount; i++) {
+                setTimeout(() => {
+                    // 随机位置
+                    const x = Math.random() * window.innerWidth;
+                    const y = Math.random() * window.innerHeight * 0.7;
+                    
+                    // 随机大小
+                    const size = Math.random() * 100 + 50;
+                    
+                    // 随机颜色
+                    const colors = ['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899'];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    
+                    // 创建烟花元素
+                    const firework = document.createElement('div');
+                    firework.className = 'firework';
+                    firework.style.width = `${size}px`;
+                    firework.style.height = `${size}px`;
+                    firework.style.left = `${x}px`;
+                    firework.style.top = `${y}px`;
+                    firework.style.backgroundColor = color;
+                    firework.style.boxShadow = `0 0 ${size}px ${color}`;
+                    
+                    container.appendChild(firework);
+                    
+                    // 动画结束后移除元素
+                    setTimeout(() => {
+                        firework.remove();
+                    }, 1000);
+                }, i * 200);
+            }
+        }
+
+        // 更新统计数据显示
+        function updateStats() {
+            totalQuestionsEl.textContent = totalQuestions;
+            correctAnswersEl.textContent = correctAnswers;
+            wrongAnswersEl.textContent = wrongAnswers;
+            
+            // 计算正确率
+            const accuracy = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0;
+            accuracyEl.textContent = `${accuracy}%`;
+            
+            // 计算掌握的词汇（包括连续两次正确的）
+            const masteredWords = vocabStats.filter(word => word.mastered || (word.attempts > 0 && word.errorRate < 0.3)).length;
+            const totalAttemptedWords = vocabStats.filter(word => word.attempts > 0).length;
+            const masteredPercentage = totalAttemptedWords > 0 ? 
+                Math.round((masteredWords / totalAttemptedWords) * 100) : 0;
+            masteredWordsEl.textContent = `${masteredPercentage}%`;
+        }
+
+        // 更新词汇统计表格
+        function updateVocabStatsTable() {
+            // 清空表格
+            vocabStatsEl.innerHTML = '';
+            
+            // 按错误率降序排序，错误率高的排在前面
+            const sortedVocab = [...vocabStats].sort((a, b) => {
+                // 先按是否掌握排序
+                if (a.mastered && !b.mastered) return 1;
+                if (!a.mastered && b.mastered) return -1;
+                
+                // 再按错误率排序
+                if (b.errorRate !== a.errorRate) {
+                    return b.errorRate - a.errorRate;
+                }
+                // 错误率相同则按尝试次数排序
+                return b.attempts - a.attempts;
+            });
+            
+            // 添加到表格
+            sortedVocab.forEach(word => {
+                if (word.attempts === 0) return; // 跳过未测试的词汇
+                
+                const row = document.createElement('tr');
+                
+                // 确定状态标签
+                let statusClass = '';
+                let statusText = '';
+                
+                if (word.mastered) {
+                    statusClass = 'bg-blue-100 text-blue-800';
+                    statusText = '已精通';
+                } else if (word.errorRate < 0.3) {
+                    statusClass = 'bg-green-100 text-green-800';
+                    statusText = '已掌握';
+                } else if (word.errorRate < 0.7) {
+                    statusClass = 'bg-yellow-100 text-yellow-800';
+                    statusText = '待巩固';
+                } else {
+                    statusClass = 'bg-red-100 text-red-800';
+                    statusText = '需加强';
+                }
+                
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="font-medium">${word.chinese}</div>
+                        <div class="text-sm text-gray-500">${word.cantonese}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">${word.correct}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${word.wrong}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${Math.round(word.errorRate * 100)}%</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full ${statusClass}">${statusText}</span>
+                    </td>
+                `;
+                
+                vocabStatsEl.appendChild(row);
+            });
+        }
+
+        // 重置游戏
+        function resetGame() {
+            initVocabStats();
+            currentQuestionIndex = 0;
+            totalQuestions = 0;
+            correctAnswers = 0;
+            wrongAnswers = 0;
+            
+            updateStats();
+            updateVocabStatsTable();
+            generateNewQuestion();
+        }
+
+        // 处理回车键双击事件
+        function handleEnterKeyDoubleClick(e) {
+            // 只在反馈界面处理双击回车
+            if (!feedbackCardEl.classList.contains('hidden')) {
+                e.preventDefault();
+                
+                // 重置计时器
+                if (enterKeyTimeout) {
+                    clearTimeout(enterKeyTimeout);
+                }
+                
+                // 增加按键计数
+                enterKeyPressCount++;
+                
+                // 设置计时器检测双击
+                if (enterKeyPressCount === 1) {
+                    enterKeyTimeout = setTimeout(() => {
+                        enterKeyPressCount = 0;
+                    }, 500); // 500ms内的两次按键视为双击
+                } 
+                // 检测到双击
+                else if (enterKeyPressCount === 2) {
+                    enterKeyPressCount = 0;
+                    generateNewQuestion(); // 进入下一题
+                }
+            }
+        }
+
+        // 初始化事件监听器
+        function initEventListeners() {
+            // 提交答案
+            submitBtnEl.addEventListener('click', checkAnswer);
+            
+            // 跳过问题（视为错误）
+            skipBtnEl.addEventListener('click', () => {
+                const correctAnswer = currentWord.cantonese;
+                
+                // 更新统计数据（跳过视为错误）
+                currentWord.attempts++;
+                currentWord.wrong++;
+                currentWord.consecutiveCorrect = 0; // 跳过视为错误，重置连续正确计数
+                totalQuestions++;
+                wrongAnswers++;
+                
+                // 更新错误率
+                currentWord.errorRate = currentWord.wrong / currentWord.attempts;
+                
+                // 更新UI统计
+                updateStats();
+                updateVocabStatsTable();
+                
+                // 显示错误反馈
+                showWrongFeedback(correctAnswer);
+                
+                // 显示反馈，隐藏问题
+                questionCardEl.classList.add('hidden');
+                feedbackCardEl.classList.remove('hidden');
+            });
+            
+            // 下一个问题
+            nextBtnEl.addEventListener('click', generateNewQuestion);
+            
+            // 重置游戏
+            resetBtnEl.addEventListener('click', resetGame);
+            
+            // 重新开始练习
+            restartBtnEl.addEventListener('click', resetGame);
+            
+            // 回车键提交答案（仅在问题界面）
+            answerInputEl.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !feedbackCardEl.classList.contains('hidden')) {
+                    // 在反馈界面时处理双击
+                    handleEnterKeyDoubleClick(e);
+                } else if (e.key === 'Enter' && feedbackCardEl.classList.contains('hidden')) {
+                    // 在问题界面时提交答案
+                    e.preventDefault();
+                    checkAnswer();
+                }
+            });
+            
+            // 监听整个文档的回车键，确保在任何地方都能响应
+            document.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleEnterKeyDoubleClick(e);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
